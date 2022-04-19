@@ -1,56 +1,44 @@
 import { AppSettings } from "./AppSettings";
 import {useEffect, useState} from "react";
-
+import { retryPromiseWithDelay } from "./utils"
+import { formatDistance, differenceInCalendarDays } from "date-fns"
+//import geoip from "geoip-country"
 export default function LastLoginCells(props : any) {
-    const {userId} = props;
+    const {userId, onUpdateFontColor} = props;
     const [statusTime, setStatusTime] = useState("Loading login info ...");
     const [statusIP, setStatusIP] = useState("Loading login info ...");
+    const retry = AppSettings.NUMBER_TRIES;
+    const waitBeforeRetry = AppSettings.WAIT_BEFORE_RETRY_MSECS;
 
     useEffect(() => {
-        setStatusTime("1st try getting login info ...");
-        setStatusIP("1st try getting login info ...");
-        fetchUserLoginInfo().then(loginInfo => {
-            const [lastLoginTime, lastLoginIP] = getLastLoginTimeAndIP(loginInfo);
-            setStatusTime(lastLoginTime);
-            setStatusIP(lastLoginIP);
-        }).catch(err => {
-            setStatusTime("1st call failed, retrying ... ");
-            setStatusIP("1st call failed, retrying ... ");
-            fetchUserLoginInfo().then(loginInfo => {
-                const [lastLoginTime, lastLoginIP] = getLastLoginTimeAndIP(loginInfo);
-                setStatusTime(lastLoginTime);
-                setStatusIP(lastLoginIP);
-            }).catch(err => {
-                setStatusTime("2nd call failed, retrying ... ");
-                setStatusIP("2nd call failed, retrying ... ");
-                    fetchUserLoginInfo().then(loginInfo => {
-                        const [lastLoginTime, lastLoginIP] = getLastLoginTimeAndIP(loginInfo);
-                        setStatusTime(lastLoginTime);
-                        setStatusIP(lastLoginIP);
-                    }).catch(err => {
-                        setStatusTime("3rd call failed, retrying ... ");
-                        setStatusIP("3rd call failed, retrying ... ");
-                        fetchUserLoginInfo().then(loginInfo => {
-                            const [lastLoginTime, lastLoginIP] = getLastLoginTimeAndIP(loginInfo);
-                            setStatusTime(lastLoginTime);
-                            setStatusIP(lastLoginIP);
-                        }).catch(err => {
-                            setStatusTime("4th call failed, retrying ... ");
-                            setStatusIP("4th call failed, retrying ... ");
-                            fetchUserLoginInfo().then(loginInfo => {
-                                const [lastLoginTime, lastLoginIP] = getLastLoginTimeAndIP(loginInfo);
-                                setStatusTime(lastLoginTime);
-                                setStatusIP(lastLoginIP);
-                            }).catch(err => {
-                                setStatusTime("5th call failed, could not get info! ");
-                                setStatusIP("5th call failed, could not get info! ");
-                            });
+        setStatusTime("fetching login info ...");
+        setStatusIP("fetching login info ...");
 
-                        });
-                });
-            });
-        });
+        retryPromiseWithDelay(fetchUserLoginInfo, retry, waitBeforeRetry, onFailed)
+        .then(loginInfo => {
+            const now = new Date();
+            const [lastLoginTime, lastLoginIP] = getLastLoginTimeAndIP(loginInfo);
+            const loginDate = new Date(lastLoginTime);
+            const formattedDateTime = formatDistance(loginDate, now, {addSuffix: true});
+            const numberOfDaysPassed = differenceInCalendarDays(now, loginDate);
+            if (numberOfDaysPassed > 30) {
+                onUpdateFontColor("red")
+            }
+            setStatusTime(formattedDateTime); // /*lastLoginTime*/
+            //const geo = null; //geoipCountry.lookup(lastLoginIP) || null;
+            const country = '';// geo && geo.country ? `[${geo.country}]` : '';
+            setStatusIP(`${lastLoginIP} ${country}`);
+        }).catch(err => {
+            setStatusTime(`Couldn't get login data after trying ${retry} times`);
+            setStatusIP(`Couldn't get login data after trying ${retry} times`);
+        })
     }, []);
+
+    const onFailed = (times: number) => {
+        setStatusTime(`failed@fetching login info ${times} time(s), trying again ...`);
+        setStatusIP(`failed@fetching login info ${times} time(s), trying again ...`);
+    }
+
 
     const getLastLoginTimeAndIP = (loginInfo:any):any => {
         const logins = loginInfo.logins;
@@ -77,8 +65,9 @@ export default function LastLoginCells(props : any) {
 
     }
 
-    return (<>
+    return (
+    <>
         <td>{statusTime}</td>
         <td>{statusIP}</td>
-   </>);
+    </>);
 }

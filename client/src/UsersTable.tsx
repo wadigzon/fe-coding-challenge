@@ -1,8 +1,7 @@
-import LastLoginCells from "./LastLoginCells";
+import TableRow from "./TableRow";
 
 export default function UsersTable(props : any) {
    const { usersList } = props;
-
    return (
       <>
       <h3>Number of users: {usersList.length}</h3>
@@ -21,14 +20,9 @@ export default function UsersTable(props : any) {
             <tbody>
                {usersList.map((val:any, key:any) => {
                   return (
-                     <tr key={key}>
-                        <td>{val.id}</td>
-                        <td>{val.first_name}</td>
-                        <td>{val.last_name}</td>
-                        <td>{val.email}</td>
-                        <LastLoginCells userId = {val.id} />
-                     </tr>
-                  )
+                     <TableRow key={key} id={val.id}
+                     firstName={val.first_name} lastName={val.last_name}
+                     email={val.email} /> );
                })}
             </tbody>
             <tfoot>
